@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib
 import random
+import pickle
 
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -63,9 +64,9 @@ def read_dataset(root_dir, archive_name, dataset_name):
                                    y_test.copy())
 
     return datasets_dict
-
-
+        
 def read_all_datasets(root_dir, archive_name):
+    '''
     datasets_dict = {}
 
     dataset_names_to_sort = []
@@ -105,6 +106,14 @@ def read_all_datasets(root_dir, archive_name):
         print('error in archive name')
         exit()
 
+    return datasets_dict
+    '''
+    datasets_dict = {}
+    for dataset_name in DATASET_NAMES: # univariate dataset names
+        file_name = root_dir + 'data/' + dataset_name + '.pickle'
+        with open(file_name, 'rb') as f:
+            datasets_dict[dataset_name] = pickle.load(f)
+            
     return datasets_dict
 
 
@@ -206,7 +215,7 @@ def save_logs(output_directory, hist, y_pred, y_true, duration,
     df_best_model['best_model_train_loss'] = row_best_model['loss']
     if plot_test_acc:
         df_best_model['best_model_val_loss'] = row_best_model['val_loss']
-    df_best_model['best_model_train_acc'] = row_best_model['acc']
+    df_best_model['best_model_train_acc'] = row_best_model['accuracy']
     if plot_test_acc:
         df_best_model['best_model_val_acc'] = row_best_model['val_acc']
     if lr == True:

@@ -2,6 +2,8 @@
 import keras
 import numpy as np
 import time
+import keras.backend as KB
+import tensorflow as tf
 
 from utils.utils import save_logs
 from utils.utils import calculate_metrics
@@ -10,11 +12,15 @@ from utils.utils import save_test_duration
 
 class Classifier_INCEPTION:
 
-    def __init__(self, output_directory, input_shape, nb_classes, verbose=False, build=True, batch_size=64,
-                 nb_filters=32, use_residual=True, use_bottleneck=True, depth=6, kernel_size=41, nb_epochs=1500):
+    def __init__(self, classification, output_directory, input_shape, nb_classes, verbose=False, 
+                 build=True,
+                 batch_size=64, nb_filters=32, use_residual=True, use_bottleneck=True, depth=6, kernel_size=41, nb_epochs=1500):
+
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        print(gpus)
+        tf.config.experimental.set_memory_growth(gpus[0], True)
 
         self.output_directory = output_directory
-
         self.nb_filters = nb_filters
         self.use_residual = use_residual
         self.use_bottleneck = use_bottleneck
@@ -26,7 +32,7 @@ class Classifier_INCEPTION:
         self.nb_epochs = nb_epochs
 
         if build == True:
-            self.model = self.build_model(input_shape, nb_classes)
+            self.model = self.build_model(input_shape, nb_classes, classification)
             if (verbose == True):
                 self.model.summary()
             self.verbose = verbose
@@ -70,8 +76,12 @@ class Classifier_INCEPTION:
         x = keras.layers.Add()([shortcut_y, out_tensor])
         x = keras.layers.Activation('relu')(x)
         return x
-
-    def build_model(self, input_shape, nb_classes):
+    
+        
+    def build_model(self, input_shape, nb_classes, classification):
+        def loss_1(y, yhat): # loss function on the difference between 
+            return KB.sum(KB.square(yhat - y))
+    
         input_layer = keras.layers.Input(input_shape)
 
         x = input_layer
@@ -87,12 +97,20 @@ class Classifier_INCEPTION:
 
         gap_layer = keras.layers.GlobalAveragePooling1D()(x)
 
-        output_layer = keras.layers.Dense(nb_classes, activation='softmax')(gap_layer)
+        if classification:
+            output_layer = keras.layers.Dense(nb_classes, activation='softmax')(gap_layer)
+        else: # regression
+            output_layer = keras.layers.Dense(1, activation='linear')(gap_layer)
 
         model = keras.models.Model(inputs=input_layer, outputs=output_layer)
-
-        model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(),
-                      metrics=['accuracy'])
+        
+        if classification:
+            model.compile(loss=custom_loss_function, optimizer=keras.optimizers.Adam(),
+                          metrics=['accuracy'])
+            #model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(),
+             #           metrics=['accuracy'])
+        else:
+            model.compile(loss='mean_absolute_error', optimizer=keras.optimizers.Adam())
 
         reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=50,
                                                       min_lr=0.0001)
@@ -132,23 +150,30 @@ class Classifier_INCEPTION:
 
         self.model.save(self.output_directory + 'last_model.hdf5')
 
-        y_pred = self.predict(x_val, y_true, x_train, y_train, y_val,
-                              return_df_metrics=False)
+        y_pred = self.predict(x_val, y_true, x_train, y_train, y_val, return_df_metrics=False)
 
         # save predictions
         np.save(self.output_directory + 'y_pred.npy', y_pred)
 
-        # convert the predicted from binary to integer
+        # convert predicted
+        # don't need to do this since it's taken care of in load.py
+        '''
         y_pred = np.argmax(y_pred, axis=1)
 
         df_metrics = save_logs(self.output_directory, hist, y_pred, y_true, duration,
                                plot_test_acc=plot_test_acc)
-
+        '''
         keras.backend.clear_session()
 
-        return df_metrics
+        # return df_metrics
 
     def predict(self, x_test, y_true, x_train, y_train, y_test, return_df_metrics=True):
+        '''
+        def custom_loss_function(y, yhat):
+            return KB.sum(KB.square(yhat - y))
+        model = keras.models.load_model(model_path, custom_objects={'custom_loss_function': custom_loss_function})
+        '''
+
         start_time = time.time()
         model_path = self.output_directory + 'best_model.hdf5'
         model = keras.models.load_model(model_path)

@@ -8,11 +8,12 @@ from utils.utils import generate_results_csv
 
 import utils
 import numpy as np
+import os
 import sys
 import sklearn
 
 
-def prepare_data():
+def prepare_data(classification):
     x_train = datasets_dict[dataset_name][0]
     y_train = datasets_dict[dataset_name][1]
     x_test = datasets_dict[dataset_name][2]
@@ -21,7 +22,8 @@ def prepare_data():
     nb_classes = len(np.unique(np.concatenate((y_train, y_test), axis=0)))
 
     # make the min to zero of labels
-    y_train, y_test = transform_labels(y_train, y_test)
+    if classification:
+        y_train, y_test = transform_labels(y_train, y_test)
 
     # save orignal y because later we will use binary
     y_true = y_test.astype(np.int64)
@@ -29,8 +31,9 @@ def prepare_data():
     # transform the labels from integers to one hot vectors
     enc = sklearn.preprocessing.OneHotEncoder()
     enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
-    y_train = enc.transform(y_train.reshape(-1, 1)).toarray()
-    y_test = enc.transform(y_test.reshape(-1, 1)).toarray()
+    if classification:
+        y_train = enc.transform(y_train.reshape(-1, 1)).toarray()
+        y_test = enc.transform(y_test.reshape(-1, 1)).toarray()
 
     if len(x_train.shape) == 2:  # if univariate
         # add a dimension to make it multivariate with one dimension
@@ -40,16 +43,16 @@ def prepare_data():
     return x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc
 
 
-def fit_classifier():
+def fit_classifier(classification):
     input_shape = x_train.shape[1:]
 
     classifier = create_classifier(classifier_name, input_shape, nb_classes,
-                                   output_directory)
+                                   output_directory, classification)
 
     classifier.fit(x_train, y_train, x_test, y_test, y_true)
 
 
-def create_classifier(classifier_name, input_shape, nb_classes, output_directory,
+def create_classifier(classifier_name, input_shape, nb_classes, output_directory, classification,
                       verbose=False, build=True):
     if classifier_name == 'nne':
         from classifiers import nne
@@ -57,8 +60,7 @@ def create_classifier(classifier_name, input_shape, nb_classes, output_directory
                                   nb_classes, verbose)
     if classifier_name == 'inception':
         from classifiers import inception
-        return inception.Classifier_INCEPTION(output_directory, input_shape, nb_classes, verbose,
-                                              build=build)
+        return inception.Classifier_INCEPTION(classification, output_directory, input_shape, nb_classes, verbose, build=build)
 
 
 def get_xp_val(xp):
@@ -80,18 +82,23 @@ def get_xp_val(xp):
 
 
 ############################################### main
-root_dir = '/b/home/uha/hfawaz-datas/temp-dl-tsc/'
+root_dir = '/home/renyi/Documents/InceptionTime/'
 xps = ['use_bottleneck', 'use_residual', 'nb_filters', 'depth',
        'kernel_size', 'batch_size']
 
 if sys.argv[1] == 'InceptionTime':
+    if sys.argv[2] == '0':
+        classification = True
+    else:
+        classification = False
+
     # run nb_iter_ iterations of Inception on the whole TSC archive
     classifier_name = 'inception'
     archive_name = ARCHIVE_NAMES[0]
-    nb_iter_ = 5
-
+    nb_iter_ = 1
     datasets_dict = read_all_datasets(root_dir, archive_name)
-
+    
+    # os.system("rm -rf results")
     for iter in range(nb_iter_):
         print('\t\titer', iter)
 
@@ -104,27 +111,23 @@ if sys.argv[1] == 'InceptionTime':
         for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
             print('\t\t\tdataset_name: ', dataset_name)
 
-            x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data()
-
+            x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data(classification)
             output_directory = tmp_output_directory + dataset_name + '/'
-
             temp_output_directory = create_directory(output_directory)
-
             if temp_output_directory is None:
                 print('Already_done', tmp_output_directory, dataset_name)
                 continue
-
-            fit_classifier()
-
+            fit_classifier(classification)
+            
             print('\t\t\t\tDONE')
-
             # the creation of this directory means
             create_directory(output_directory + '/DONE')
-
+    
+    '''
     # run the ensembling of these iterations of Inception
     classifier_name = 'nne'
 
-    datasets_dict = read_all_datasets(root_dir, archive_name)
+    #datasets_dict = read_all_datasets(root_dir, archive_name)
 
     tmp_output_directory = root_dir + '/results/' + classifier_name + '/' + archive_name + '/'
 
@@ -138,7 +141,8 @@ if sys.argv[1] == 'InceptionTime':
         fit_classifier()
 
         print('\t\t\t\tDONE')
-
+    '''
+    
 elif sys.argv[1] == 'InceptionTime_xp':
     # this part is for running inception with the different hyperparameters
     # listed in the paper, on the whole TSC archive
@@ -172,7 +176,7 @@ elif sys.argv[1] == 'InceptionTime_xp':
                         xp_val) + '/' + archive_name + trr + '/' + dataset_name + '/'
 
                     print('\t\t\tdataset_name', dataset_name)
-                    x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data()
+                    x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data(classification)
 
                     # check if data is too big for this gpu
                     size_data = x_train.shape[0] * x_train.shape[1]
@@ -187,7 +191,7 @@ elif sys.argv[1] == 'InceptionTime_xp':
 
                     from classifiers import inception
 
-                    classifier = inception.Classifier_INCEPTION(output_directory, input_shape, nb_classes,
+                    classifier = inception.Classifier_INCEPTION(output_directory, input_shape, 1,
                                                                 verbose=False, build=True, **kwargs)
 
                     classifier.fit(x_train, y_train, x_test, y_test, y_true)
@@ -212,7 +216,7 @@ elif sys.argv[1] == 'InceptionTime_xp':
             clf_name = 'inception/' + xp + '/' + str(xp_val)
 
             for dataset_name in utils.constants.dataset_names_for_archive[archive_name]:
-                x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data()
+                x_train, y_train, x_test, y_test, y_true, nb_classes, y_true_train, enc = prepare_data(classification)
 
                 output_directory = tmp_output_directory + dataset_name + '/'
 
