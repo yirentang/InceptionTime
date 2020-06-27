@@ -32,8 +32,15 @@ def prepare_data(classification):
     enc = sklearn.preprocessing.OneHotEncoder()
     enc.fit(np.concatenate((y_train, y_test), axis=0).reshape(-1, 1))
     if classification:
+        '''
         y_train = enc.transform(y_train.reshape(-1, 1)).toarray()
+        print(y_train)
         y_test = enc.transform(y_test.reshape(-1, 1)).toarray()
+        '''
+        T = 100
+        n = len(y_train)
+        a = 5
+        y_train = np.array([np.maximum(np.zeros(100), a-np.abs(np.asarray(range(T))+1-y_train[i])) for i in range(n)])
 
     if len(x_train.shape) == 2:  # if univariate
         # add a dimension to make it multivariate with one dimension
@@ -87,6 +94,11 @@ xps = ['use_bottleneck', 'use_residual', 'nb_filters', 'depth',
        'kernel_size', 'batch_size']
 
 if sys.argv[1] == 'InceptionTime':
+    # mode 0: vanilla classification
+    # mode 1: regression
+    # mode 2: loss on one-hot representation
+    # mode 3: loss on distance-representation
+    # mode 4: loss on distance-representation 
     if sys.argv[2] == '0':
         classification = True
     else:

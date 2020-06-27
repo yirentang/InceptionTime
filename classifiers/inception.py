@@ -79,8 +79,8 @@ class Classifier_INCEPTION:
     
         
     def build_model(self, input_shape, nb_classes, classification):
-        def loss_1(y, yhat): # loss function on the difference between 
-            return KB.sum(KB.square(yhat - y))
+        def loss1(y, yhat): # loss function on the difference
+            return KB.sum(KB.abs(yhat - y))
     
         input_layer = keras.layers.Input(input_shape)
 
@@ -105,10 +105,9 @@ class Classifier_INCEPTION:
         model = keras.models.Model(inputs=input_layer, outputs=output_layer)
         
         if classification:
-            model.compile(loss=custom_loss_function, optimizer=keras.optimizers.Adam(),
+            model.compile(loss=loss1, optimizer=keras.optimizers.Adam(),
                           metrics=['accuracy'])
-            #model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(),
-             #           metrics=['accuracy'])
+            #model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.Adam(), metrics=['accuracy'])
         else:
             model.compile(loss='mean_absolute_error', optimizer=keras.optimizers.Adam())
 
@@ -168,15 +167,13 @@ class Classifier_INCEPTION:
         # return df_metrics
 
     def predict(self, x_test, y_true, x_train, y_train, y_test, return_df_metrics=True):
-        '''
-        def custom_loss_function(y, yhat):
-            return KB.sum(KB.square(yhat - y))
-        model = keras.models.load_model(model_path, custom_objects={'custom_loss_function': custom_loss_function})
-        '''
+        def loss1(y, yhat):
+            return KB.sum(KB.abs(yhat - y))
+        # model = keras.models.load_model(model_path, custom_objects={'custom_loss_function': custom_loss_function})
 
         start_time = time.time()
         model_path = self.output_directory + 'best_model.hdf5'
-        model = keras.models.load_model(model_path)
+        model = keras.models.load_model(model_path, custom_objects={'loss1': loss1})
         y_pred = model.predict(x_test, batch_size=self.batch_size)
         if return_df_metrics:
             y_pred = np.argmax(y_pred, axis=1)

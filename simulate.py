@@ -57,6 +57,9 @@ def generate2wrapper(T, nclasses, var):
     
     return datasets_dict
 
+# generate a set of data with fixed eta = 50
+def generate3(T, eta, var):
+    
 if __name__ == "__main__":
     datasets_dict = generate2wrapper(100, 100, 0.2)
     for dsname in datasets_dict:

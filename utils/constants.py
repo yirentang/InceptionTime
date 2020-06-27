@@ -22,7 +22,7 @@ UNIVARIATE_ARCHIVE_NAMES = ['TSC']
 
 # UNIVARIATE_DATASET_NAMES = ['Meat', 'Coffee']
 UNIVARIATE_DATASET_NAMES = ['SIMULATED_mdiff=1', 'SIMULATED_mdiff=0.75', 'SIMULATED_mdiff=0.5', 
-                            'SIMULATED_mdiff=0.25', 'SIMULATED_mdiff=0', 'SIMULATED_mdiff=-1']
+                            'SIMULATED_mdiff=0.25', 'SIMULATED_mdiff=-1']
 
 
 SITS_DATASETS = ['SatelliteFull_TRAIN_c301', 'SatelliteFull_TRAIN_c200', 'SatelliteFull_TRAIN_c451',
