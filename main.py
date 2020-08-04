@@ -39,7 +39,8 @@ def prepare_data(classification):
         '''
         T = 100
         n = len(y_train)
-        a = 5
+        a = 1
+        print(a)
         y_train = np.array([np.maximum(np.zeros(100), a-np.abs(np.asarray(range(T))+1-y_train[i])) for i in range(n)])
 
     if len(x_train.shape) == 2:  # if univariate

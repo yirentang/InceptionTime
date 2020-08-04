@@ -1,69 +1,61 @@
 import numpy as np
-import os
+import pandas as pd
 import pickle
+import os
 
 root_dir = '/home/renyi/Documents/InceptionTime/'
 
-# fixed mean and variance
-def simulate_data(T, nclasses, mean, var):
-    interval = round(T/nclasses) - round(T/nclasses**2)
-    labels = interval * (np.array(range(nclasses)) + 1)
-    x_train, y_train, x_test, y_test = [], [], [], []
-
-    for i in range(1500):
-        label = np.random.choice(labels, 1)[0]
-        generation1 = np.concatenate((np.random.normal(mean, var, label), np.random.normal(2*mean, var, T-label)))
-        generation2 = np.concatenate((np.random.normal(mean, var, label), np.random.normal(2*mean, var, T-label)))
-        x_train.append(generation1)
-        y_train.append(label)
-        x_test.append(generation2)
-        y_test.append(label)
-    x_train, y_train, x_test, y_test = np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test)
-    datasets_dict = {}
-    datasets_dict['SIMULATED'] = (x_train.copy(), y_train.copy(), x_test.copy(), y_test.copy())
-    
-    return datasets_dict
-
 # fixed variance, mean generated differently
-def generate2(T, nclasses, var, mdiff_random):
-    interval = round(T/nclasses) - round(T/nclasses**2)
-    labels = interval * (np.array(range(nclasses)) + 1)
-    x_train, y_train, x_test, y_test = [], [], [], []
+def generate(T, var, theta, n):
+    llimit = int(T * 0.1)
+    rlimit = int(T * 0.9)
+    etas = np.array(range(llimit, rlimit+1))
+    samples, labels = [], []
 
-    for i in range(1500):
-        label = np.random.choice(labels, 1)[0]
+    for i in range(n):
+        eta = np.random.choice(etas, 1)[0]
         mean1 = np.random.uniform(0, 1)
-        if mdiff_random == -1:
-            mean_diff = np.random.uniform(0,1)
-        else:
-            mean_diff = mdiff_random
-        mean2 = mean1 + mean_diff * np.random.choice([-1,1], 1)[0]
-        
-        generation1 = np.concatenate((np.random.normal(mean1, var, label), np.random.normal(mean2, var, T-label)))
-        generation2 = np.concatenate((np.random.normal(mean1, var, label), np.random.normal(mean2, var, T-label)))
-        x_train.append(generation1)
-        y_train.append(label)
-        x_test.append(generation2)
-        y_test.append(label)
-    x_train, y_train, x_test, y_test = np.array(x_train), np.array(y_train), np.array(x_test), np.array(y_test)
+        if theta == -1:
+            theta = np.random.uniform(0,1)
+        mean2 = mean1 + theta * np.random.choice([-1, 1], 1)[0]
+        sample = np.concatenate((np.random.normal(mean1, var, eta),
+        np.random.normal(mean2, var, T-eta)))
+        samples.append(sample)
+        labels.append(eta)
     
-    return (x_train, y_train, x_test, y_test)
+    return samples, labels
 
-def generate2wrapper(T, nclasses, var):
+def generatewrapper(T, var):
+    ns = [1500, 10000]
+    thetas = [1, 0.75, 0.5, 0.25, -1]
     datasets_dict = {}
-    candidates = [-1, 0, 0.25, 0.5, 0.75, 1]
-    for mdiff_random in candidates:
-        datasets_dict['SIMULATED_'+'mdiff='+str(mdiff_random)] = generate2(T, nclasses, var, mdiff_random)
+
+    for theta in thetas:
+        x_test, y_test = generate(T, var, theta, 500)
+        for n in ns:
+            name = 'DoubleUniNormal' + '_theta='+str(theta) + '_n='+str(n)
+            x_train, y_train = generate(T, var, theta, n)
+            datasets_dict[name] = (np.array(x_train), np.array(y_train),
+                                    np.array(x_test), np.array(y_test))
     
     return datasets_dict
-
-# generate a set of data with fixed eta = 50
-def generate3(T, eta, var):
     
 if __name__ == "__main__":
-    datasets_dict = generate2wrapper(100, 100, 0.2)
+    dir0 = root_dir + 'data'
+    dir1 = root_dir + 'data/original/'
+    dir2 = root_dir + 'data/csv/'
+    dirs = [dir0, dir1, dir2]
+    for diri in dirs:
+        if not os.path.isdir(diri):
+            os.mkdir(diri)
+    
+    datasets_dict = generatewrapper(100, 0.2)
     for dsname in datasets_dict:
-        file_name = root_dir + '/data/' + dsname + '.pickle'
-        # os.makedirs(output_directory)
-        with open(file_name, 'wb') as f:
+        # save pickle file first
+        with open(dir1+dsname+'.pickle', 'wb') as f:
             pickle.dump(datasets_dict[dsname], f)
+        # save test data to csv files for R
+        pd.DataFrame(datasets_dict[dsname][2]).T.to_csv(dir2+dsname + '_x_test.csv')
+        pd.DataFrame(datasets_dict[dsname][3]).T.to_csv(dir2+dsname + '_y_test.csv')
+        # save grouped data
+        dataset = datasets_dict[dsname]
